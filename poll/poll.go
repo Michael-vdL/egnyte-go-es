@@ -22,7 +22,7 @@ type Poller struct {
 }
 
 // For now, just assuming poller is only for events
-func (p *Poller) Poll(ctx context.Context, interval time.Duration) {
+func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit int) {
   // TODO: implement reusable polling - idea would be to have a poll method on clients that can be polled.
   // if len(endpoints) == 0 {
   //   log.Default().Println("Could not initiate poller: No endpoints to poll")
@@ -37,12 +37,7 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration) {
   t := time.NewTicker(interval)
   defer t.Stop()
 
-  eventCursor, err := p.egClient.GetCursor()
-  if err != nil {
-    log.Panic(err)
-  }
-  p.lastCursor = eventCursor.OldestEventId
-  p.latestCursor = eventCursor.LatestEventId
+  p.SetInitialPollingCursor(historyLimit)
 
   log.Default().Println("Polling on a pole")
   for range t.C {
@@ -81,6 +76,20 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration) {
     case <-t.C:
     }
     
+  }
+}
+
+func (p *Poller) SetInitialPollingCursor(historyLimit int) {
+  cursor, err := p.egClient.GetCursor()
+  if err != nil {
+    log.Panic(err)
+  }
+
+  p.latestCursor = cursor.LatestEventId
+  if p.lastCursor + historyLimit >= cursor.LatestEventId {
+    p.lastCursor = cursor.OldestEventId
+  } else {
+    p.lastCursor = cursor.LatestEventId - historyLimit
   }
 }
 

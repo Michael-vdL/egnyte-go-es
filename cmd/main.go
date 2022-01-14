@@ -15,6 +15,7 @@ var (
 	egnyteConfigFile  = flag.String("egnyte-cfg", "./config/egnyte.json", "Relative path to egnyte configuration file")
 	elasticConfigFile = flag.String("elastic-cfg", "./config/elastic.json", "Relative path to elastic configuration file")
   pollingInterval = flag.Int("polling-interval", 5, "Interval to poll events from egnyte in minutes")
+  historyLimit = flag.Int("history-limit", 1000, "How far back the initial poll of Egnyte will go. Default is 1000. Will reference state file and current cursor")
 )
 
 
@@ -36,5 +37,5 @@ func main() {
   esClient, _ := elastic.NewDefaultClient() // TOOD: Implement ES Client from Config File
   poller := poll.New(egEventClient, *esClient)
 
-  poller.Poll(context.Background(), time.Duration(*pollingInterval) * time.Minute)
+  poller.Poll(context.Background(), time.Duration(*pollingInterval) * time.Minute, *historyLimit)
 }
