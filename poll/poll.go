@@ -13,13 +13,6 @@ import (
 
 const DefaultPollingInterval = 5 * time.Minute
 
-type Poller struct {
-	egClient     *egnyte.EventClient
-	esClient     es.Client
-	lastCursor   int
-	latestCursor int
-}
-
 // For now, just assuming poller is only for events
 func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit int) {
 	// TODO: implement reusable polling - idea would be to have a pollable interface for variables endpoints that can be polled.
@@ -35,14 +28,12 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 
 	t := time.NewTicker(interval)
 	defer t.Stop()
-
-	p.SetInitialPollingCursor(historyLimit) 
  
   // * Right now, it is too easy to overwhelm the poller with events. moving a folder higher up in the tree could easily generate thousands of events.
   // * Need to identify a good way to handle surges of events. Something conditional that would maybe filter dynamically if 
 	for {
 		log.Default().Println("Polling Again")
-		events, err := p.egClient.GetEvents(strconv.Itoa(p.lastCursor))
+		events, err := p.egClient.GetEvents(strconv.Itoa(p.state.LastCursor))
 		if err != nil {
 			if err.Error() == "get events failed. status code: 403" {
 				log.Default().Println("Poller: Hit Egnyte Rate Limit, sleeping for interval")
@@ -56,7 +47,7 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 			}
 		}
     if events != nil {
-      p.lastCursor = events.LatestId
+      p.state.LastCursor = events.LatestId
       p.postEgnyteEvents(events)
     }
 		select {
@@ -69,9 +60,24 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 }
 
 // Temperary... need to make this a generic function for any pollable endpoint (if possible)
+// TODO: Move this to a middleware function so data can be cleaned up. For now need to leverage some other data store.
 func (p *Poller) postEgnyteEvents(events *egnyte.Events) {
 	log.Default().Println("Poller: Starting - posting events")
+	// Enrich data with usernames before sending to Egnyte...
+	actorMap := make(map[int]string)
+	for _, user := range p.state.Users.Resources {
+		actorMap[user.ID] = user.UserName
+	}
 	for _, event := range events.Events {
+		if _, ok := actorMap[event.Actor]; !ok {
+			// Need to find a way to stagger this call and optimize... Rate limits are going to kill me
+			newUser, err := p.userClient.GetUserById(strconv.Itoa(event.Actor))
+			if err != nil {
+				log.Fatal(err)
+			}
+			p.state.Users.Resources = append(p.state.Users.Resources, *newUser)
+			actorMap[newUser.ID] = newUser.UserName
+		}
 		res, err := p.esClient.Index(
 			"egnyte-events-",
 			esutil.NewJSONReader(event),
@@ -82,25 +88,20 @@ func (p *Poller) postEgnyteEvents(events *egnyte.Events) {
 		}
 	}
 	log.Default().Println("Poller: Complete - posting events")
+	p.updateStateFile()
 }
 
-func (p *Poller) SetInitialPollingCursor(historyLimit int) {
-	cursor, err := p.egClient.GetCursor()
-	if err != nil {
-		log.Panic(err)
-	}
+func New(egClient *egnyte.EventClient, userClient *egnyte.UserClient, esClient es.Client) *Poller {
 
-	p.latestCursor = cursor.LatestEventId
-	if p.lastCursor+historyLimit >= cursor.LatestEventId {
-		p.lastCursor = cursor.OldestEventId
-	} else {
-		p.lastCursor = cursor.LatestEventId - historyLimit
-	}
-}
-
-func New(egClient *egnyte.EventClient, esClient es.Client) *Poller {
-	return &Poller{
+	// Initialize Poller object
+	poller := &Poller{
 		egClient: egClient,
+		userClient: userClient,
 		esClient: esClient,
 	}
+
+	// Generate Poller State
+	poller.getInitialState()
+
+	return poller
 }

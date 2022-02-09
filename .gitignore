@@ -2,3 +2,5 @@ config/egnyte.json
 config/elastic.json
 
 go.sum
+
+service.state
