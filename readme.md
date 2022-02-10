@@ -12,7 +12,7 @@ The development environment will be deployed locally using Docker Compose to dep
 3. Modify the parameters within the new config file to match your Egnyte step. <br/>
    <strong>Note</strong>: you can ignore the elastic configurations for development.
 4. Run the following command to build the docker container.<br>
-   TODO: Add command below.
+   `docker build . -t egnyte-go-es`
 5. Run docker-compose -d up to deploy development environment. Will host a local Kibana and Elasticsearch instance for the Engyte ES Service to push data to.
 6. Access the kibana dashboard at http://localhost:5601/app/home#/
 

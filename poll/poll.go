@@ -30,7 +30,7 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 	defer t.Stop()
  
   // * Right now, it is too easy to overwhelm the poller with events. moving a folder higher up in the tree could easily generate thousands of events.
-  // * Need to identify a good way to handle surges of events. Something conditional that would maybe filter dynamically if 
+  // * Need to identify a good way to handle surges of events. Something conditional that would maybe filter dynamically if
 	for {
 		log.Default().Println("Polling Again")
 		events, err := p.egClient.GetEvents(strconv.Itoa(p.state.LastCursor))
@@ -82,7 +82,7 @@ func (p *Poller) postEgnyteEvents(events *egnyte.Events) {
 			"egnyte-events-",
 			esutil.NewJSONReader(event),
 		)
-		res.Body.Close() // Why can't I defer this? (Originally in Loop)
+		defer res.Body.Close() // Why can't I defer this? (Originally in Loop)
 		if err != nil {
 			log.Panic(err)
 		}
