@@ -18,7 +18,9 @@ type PollerState struct {
 }
 
 func (p *Poller) setInitialUsers() {
-	users, err := p.userClient.GetUsers()
+	qps := make(map[string]string)
+	qps["count"] = "100"
+	users, err := p.userClient.GetUsers(qps)
 	if err != nil {
 		log.Fatal(err)
 	}
