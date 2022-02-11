@@ -28,9 +28,9 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 
 	t := time.NewTicker(interval)
 	defer t.Stop()
- 
-  // * Right now, it is too easy to overwhelm the poller with events. moving a folder higher up in the tree could easily generate thousands of events.
-  // * Need to identify a good way to handle surges of events. Something conditional that would maybe filter dynamically if
+
+	// * Right now, it is too easy to overwhelm the poller with events. moving a folder higher up in the tree could easily generate thousands of events.
+	// * Need to identify a good way to handle surges of events. Something conditional that would maybe filter dynamically if
 	for {
 		log.Default().Println("Polling Again")
 		events, err := p.egClient.GetEvents(strconv.Itoa(p.state.LastCursor))
@@ -46,10 +46,10 @@ func (p *Poller) Poll(ctx context.Context, interval time.Duration, historyLimit 
 				log.Panic(err)
 			}
 		}
-    if events != nil {
-      p.state.LastCursor = events.LatestId
-      p.postEgnyteEvents(events)
-    }
+		if events != nil {
+			p.state.LastCursor = events.LatestId
+			p.postEgnyteEvents(events)
+		}
 		select {
 		case <-ctx.Done():
 			log.Default().Panicln("stopping poller")
@@ -95,9 +95,9 @@ func New(egClient *egnyte.EventClient, userClient *egnyte.UserClient, esClient e
 
 	// Initialize Poller object
 	poller := &Poller{
-		egClient: egClient,
+		egClient:   egClient,
 		userClient: userClient,
-		esClient: esClient,
+		esClient:   esClient,
 	}
 
 	// Generate Poller State

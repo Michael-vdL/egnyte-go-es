@@ -32,11 +32,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-		egEventClient := &egnyte.EventClient{Client: *egnyteClient}
-    egUserClient := &egnyte.UserClient{Client: *egnyteClient}
+	egEventClient := &egnyte.EventClient{Client: *egnyteClient}
+	egUserClient := &egnyte.UserClient{Client: *egnyteClient}
 
-		esClient, _ := elastic.NewDefaultClient() // TODO: Implement ES Client from Config File
-		poller := poll.New(egEventClient, egUserClient, *esClient)
+	cfg := elastic.Config{
+		Addresses: []string{
+			"http://es01-test:9200",
+		},
+	}
 
-		poller.Poll(context.Background(), time.Duration(*pollingInterval)*time.Minute, *historyLimit)
+	esClient, _ := elastic.NewClient(cfg) // TODO: Implement ES Client from Config File
+	poller := poll.New(egEventClient, egUserClient, *esClient)
+
+	poller.Poll(context.Background(), time.Duration(*pollingInterval)*time.Minute, *historyLimit)
 }
